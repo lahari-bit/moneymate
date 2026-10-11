@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% load tracker_tags %}
+
+{% block title %}Savings Goals – MoneyMate{% endblock %}
+{% block page_title %}Savings Goals{% endblock %}
+{% block page_subtitle %}Set financial milestones, deposit funds, and track your progress to completion.{% endblock %}
+
+{% block content %}
+
+<!-- SUMMARY STATS -->
+<div class="grid-cols-4" style="margin-bottom: 2rem;">
+  <div class="stat-card stat-savings">
+    <div class="stat-info">
+      <span class="stat-label">Total Saved</span>
+      <span class="stat-value" style="color: #3b82f6;">{{ total_saved|currency:user_currency }}</span>
+      <span class="stat-sub">{{ overall_progress }}% of target funded</span>
+    </div>
+    <div class="stat-icon icon-savings"><i class="fa-solid fa-piggy-bank"></i></div>
+  </div>
+
+  <div class="stat-card stat-income">
+    <div class="stat-info">
+      <span class="stat-label">Target Milestones</span>
+      <span class="stat-value" style="color: #10b981;">{{ total_target|currency:user_currency }}</span>
+      <span class="stat-sub">Across {{ goals.count }} registered goals</span>
+    </div>
+    <div class="stat-icon icon-income"><i class="fa-solid fa-bullseye"></i></div>
+  </div>
+
+  <div class="stat-card stat-balance">
+    <div class="stat-info">
+      <span class="stat-label">Active Goals</span>
+      <span class="stat-value" style="color: #8b5cf6;">{{ active_count }}</span>
+      <span class="stat-sub">Ongoing savings vaults</span>
+    </div>
+    <div class="stat-icon icon-balance"><i class="fa-solid fa-hourglass-half"></i></div>
+  </div>
+
+  <div class="stat-card stat-budget">
+    <div class="stat-info">
+      <span class="stat-label">Completed Goals</span>
+      <span class="stat-value" style="color: #10b981;">{{ completed_count }}</span>
+      <span class="stat-sub">100% achieved!</span>
+    </div>
+    <div class="stat-icon icon-budget" style="background: var(--success-bg); color: var(--success);"><i class="fa-solid fa-award"></i></div>
+  </div>
+</div>
+
+<!-- GOALS LIST / CARDS -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title">
+        <i class="fa-solid fa-trophy text-primary" style="color: var(--primary);"></i>
+        Your Goal Vaults
+      </h3>
+      <p class="card-subtitle">Keep your targets visible and contribute regularly</p>
+    </div>
+    <button onclick="openModal('addGoalModal')" class="btn btn-primary btn-sm">
+      <i class="fa-solid fa-plus"></i> New Savings Goal
+    </button>
+  </div>
+
+  {% if goals %}
+    <div class="grid-cols-2" style="gap: 1.5rem;">
+      {% for goal in goals %}
+        <div class="card" style="background: var(--bg-card); border-top: 4px solid {{ goal.color }}; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <!-- Goal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.85rem;">
+                <div style="width: 46px; height: 46px; border-radius: var(--radius-md); background: rgba(16, 185, 129, 0.12); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: {{ goal.color }};">
+                  <i class="fa-solid {{ goal.category_icon }}"></i>
+                </div>
+                <div>
+                  <h4 style="font-size: 1.15rem; font-weight: 700;">{{ goal.name }}</h4>
+                  <span style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.35rem;">
+                    <i class="fa-regular fa-clock"></i> Target: {{ goal.target_date|date:"d M Y" }}
+                    {% if goal.get_days_remaining > 0 %}
+                      ({{ goal.get_days_remaining }} days left)
+                    {% elif goal.get_days_remaining == 0 %}
+                      (Due Today!)
+                    {% else %}
+                      <span style="color: var(--danger);">(Past deadline)</span>
+                    {% endif %}
+                  </span>
+                </div>
+              </div>
+
+              {% if goal.is_completed %}
+                <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Achieved</span>
+              {% else %}
+                <span class="badge badge-info"><i class="fa-solid fa-spinner"></i> In Progress</span>
+              {% endif %}
+            </div>
+
+            {% if goal.notes %}
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">{{ goal.notes }}</p>
+            {% endif %}
+
+            <!-- Progress Meter -->
+            <div class="progress-wrapper" style="margin-bottom: 1.25rem;">
+              <div class="progress-header">
+                <span>Saved: <strong style="color: var(--primary);">{{ goal.current_amount|currency:user_currency }}</strong></span>
+                <span>Target: <strong>{{ goal.target_amount|currency:user_currency }}</strong></span>
+              </div>
+              <div class="progress-track" style="height: 12px;">
+                <div class="progress-bar {% if goal.is_completed %}progress-success{% else %}progress-info{% endif %}"
+                     style="width: {{ goal.get_progress_percentage }}%;"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">
+                <span>{{ goal.get_progress_percentage }}% Completed</span>
+                <span>Remaining: <strong>{{ goal.get_remaining_amount|currency:user_currency }}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons Footer -->
+          <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border); margin-top: 1rem;">
+            <div style="display: flex; gap: 0.5rem;">
+              <button onclick="openDepositModal('{{ goal.id }}', '{{ goal.name|escapejs }}')" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Add Money
+              </button>
+              <a href="{% url 'savings_toggle' goal.id %}" class="btn btn-secondary btn-sm" title="Toggle Completion">
+                {% if goal.is_completed %}
+                  <i class="fa-solid fa-rotate-left"></i> Re-open
+                {% else %}
+                  <i class="fa-solid fa-check"></i> Mark Complete
+                {% endif %}
+              </a>
+            </div>
+
+            <form action="{% url 'savings_delete' goal.id %}" method="POST" onsubmit="return confirm('Delete savings goal \'{{ goal.name|escapejs }}\'?');" style="margin: 0;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-secondary btn-icon" style="color: var(--danger); width: 34px; height: 34px;" title="Delete Goal">
+                <i class="fa-solid fa-trash-can" style="font-size: 0.85rem;"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="fa-solid fa-bullseye"></i></div>
+      <h4 class="empty-title">No Savings Goals Defined Yet</h4>
+      <p class="empty-desc">Create your first goal—whether it's buying an M3 MacBook, setting aside college tuition, or funding a vacation!</p>
+      <button onclick="openModal('addGoalModal')" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Create First Goal</button>
+    </div>
+  {% endif %}
+</div>
+
+<!-- MODAL: CREATE SAVINGS GOAL -->
+<div id="addGoalModal" class="modal-overlay">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="fa-solid fa-bullseye text-primary" style="color: var(--primary); margin-right: 0.5rem;"></i>New Savings Goal</h3>
+      <button class="modal-close-btn" onclick="closeModal('addGoalModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form action="{% url 'savings_add' %}" method="POST">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Goal Name</label>
+          {{ goal_form.name }}
+        </div>
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Target Amount ({{ user_currency }})</label>
+            {{ goal_form.target_amount }}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Initial Saved ({{ user_currency }})</label>
+            {{ goal_form.current_amount }}
+          </div>
+        </div>
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Target Date</label>
+            {{ goal_form.target_date }}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Goal Icon</label>
+            {{ goal_form.category_icon }}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Accent Color</label>
+          {{ goal_form.color }}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notes / Motivation</label>
+          {{ goal_form.notes }}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addGoalModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Create Goal</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: ADD MONEY / DEPOSIT -->
+<div id="depositModal" class="modal-overlay">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="fa-solid fa-plus-circle text-primary" style="color: var(--primary); margin-right: 0.5rem;"></i>Deposit into Goal</h3>
+      <button class="modal-close-btn" onclick="closeModal('depositModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="depositForm" method="POST">
+      {% csrf_token %}
+      <div class="modal-body">
+        <p id="depositGoalTitle" style="font-size: 0.95rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-main);"></p>
+        <div class="form-group">
+          <label class="form-label">Contribution Amount ({{ user_currency }})</label>
+          <input type="number" step="0.01" min="1.00" name="amount" class="form-input" placeholder="e.g. 5000.00" required autofocus>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('depositModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Deposit Funds</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function openDepositModal(goalId, goalName) {
+    const modal = document.getElementById('depositModal');
+    const form = document.getElementById('depositForm');
+    const title = document.getElementById('depositGoalTitle');
+    
+    form.action = `/savings/${goalId}/contribute/`;
+    title.innerHTML = `Depositing savings into: <strong>${goalName}</strong>`;
+    openModal('depositModal');
+  }
+</script>
+{% endblock %}

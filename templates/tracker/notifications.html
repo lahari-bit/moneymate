@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load tracker_tags %}
+
+{% block title %}Notifications – MoneyMate{% endblock %}
+{% block page_title %}Notifications Center{% endblock %}
+{% block page_subtitle %}Budget limit alerts, savings milestones, and financial updates.{% endblock %}
+
+{% block content %}
+
+<div style="max-width: 800px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">
+        <i class="fa-solid fa-bell text-primary" style="color: var(--primary);"></i>
+        Your Alerts & Notices
+      </h3>
+    </div>
+
+    {% if notifications %}
+      <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+        {% for notif in notifications %}
+          <div style="background: var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; border: 1px solid var(--border); display: flex; align-items: flex-start; gap: 1rem; position: relative;">
+            <div style="font-size: 1.35rem; margin-top: 0.15rem; color: {% if notif.notification_type == 'danger' %}var(--danger){% elif notif.notification_type == 'warning' %}var(--warning){% elif notif.notification_type == 'success' %}var(--success){% else %}var(--info){% endif %};">
+              {% if notif.notification_type == 'danger' %}
+                <i class="fa-solid fa-circle-exclamation"></i>
+              {% elif notif.notification_type == 'warning' %}
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              {% elif notif.notification_type == 'success' %}
+                <i class="fa-solid fa-circle-check"></i>
+              {% else %}
+                <i class="fa-solid fa-circle-info"></i>
+              {% endif %}
+            </div>
+
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.25rem;">
+                <h4 style="font-size: 0.98rem; font-weight: 700; color: var(--text-main);">{{ notif.title }}</h4>
+                <span style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">
+                  {{ notif.created_at|timesince }} ago
+                </span>
+              </div>
+              <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.5rem;">
+                {{ notif.message }}
+              </p>
+
+              {% if notif.link %}
+                <a href="{{ notif.link }}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; padding: 0.3rem 0.65rem;">
+                  View Related Details <i class="fa-solid fa-arrow-right" style="font-size: 0.7rem;"></i>
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="fa-regular fa-bell-slash"></i></div>
+        <h4 class="empty-title">All Caught Up!</h4>
+        <p class="empty-desc">You don't have any pending alerts or warnings at this time.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

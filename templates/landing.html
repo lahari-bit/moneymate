@@ -1,0 +1,220 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoneyMate – Take Control of Your Money | Smart Expense Tracker</title>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  
+  <style>
+    /* Hero preview enhancements */
+    .preview-header-bar {
+      height: 42px;
+      background: #0f172a;
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 0.5rem;
+    }
+    .preview-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+    .preview-content {
+      padding: 2rem;
+      background: #131b2e;
+    }
+    .metric-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body style="background-color: #090d16; color: #f8fafc;">
+
+  <!-- LANDING NAVBAR -->
+  <header class="landing-nav">
+    <a href="{% url 'landing' %}" class="brand-link">
+      <div class="brand-icon">
+        <i class="fa-solid fa-wallet"></i>
+      </div>
+      <div class="brand-name">
+        <span class="brand-title">MoneyMate</span>
+        <span class="brand-subtitle">Smart Expense Tracker</span>
+      </div>
+    </a>
+
+    <div style="display: flex; align-items: center; gap: 1.25rem;">
+      <a href="#features" style="color: #94a3b8; font-weight: 500; font-size: 0.95rem; text-decoration: none;">Features</a>
+      <a href="#preview" style="color: #94a3b8; font-weight: 500; font-size: 0.95rem; text-decoration: none;">Dashboard</a>
+      <a href="{% url 'login' %}" class="btn btn-secondary btn-sm" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: #fff;">
+        <i class="fa-solid fa-right-to-bracket"></i> Login
+      </a>
+      <a href="{% url 'register' %}" class="btn btn-primary btn-sm">
+        <span>Get Started</span> <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="landing-hero">
+    <div class="landing-badge">
+      <i class="fa-solid fa-shield-halved"></i> Engineered for Students & Smart Individuals
+    </div>
+    
+    <h1 class="hero-title">
+      Take Control of <span class="highlight">Your Money</span>.
+    </h1>
+    
+    <p class="hero-subtitle">
+      Stop wondering where your allowance and salary went. MoneyMate equips you with intelligent daily tracking, visual category budgets, proactive 80% spending alerts, and milestone savings goals.
+    </p>
+
+    <div class="hero-cta">
+      <a href="{% url 'register' %}" class="btn btn-primary btn-lg">
+        <i class="fa-solid fa-rocket"></i> Start Tracking Free
+      </a>
+      <a href="{% url 'login' %}" class="btn btn-secondary btn-lg" style="background: rgba(30, 41, 59, 0.7); border-color: rgba(255, 255, 255, 0.15); color: #ffffff;">
+        <i class="fa-solid fa-user-check"></i> Sign In to Account
+      </a>
+    </div>
+
+    <!-- DASHBOARD PREVIEW SECTION -->
+    <div id="preview" class="dashboard-preview-card">
+      <div class="preview-header-bar">
+        <span class="preview-dot dot-red"></span>
+        <span class="preview-dot dot-yellow"></span>
+        <span class="preview-dot dot-green"></span>
+        <span style="font-size: 0.75rem; color: #64748b; margin-left: 0.5rem; font-family: var(--font-mono);">moneymate.app/dashboard</span>
+      </div>
+      <div class="preview-content">
+        <div class="grid-cols-4" style="margin-bottom: 1.5rem;">
+          <div class="metric-pill">
+            <span style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase;">Total Balance</span>
+            <h3 style="font-size: 1.45rem; font-weight: 800; color: #10b981; margin-top: 0.3rem;">₹42,850.00</h3>
+            <span style="font-size: 0.75rem; color: #34d399;"><i class="fa-solid fa-arrow-trend-up"></i> +12% this month</span>
+          </div>
+          <div class="metric-pill">
+            <span style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase;">Monthly Income</span>
+            <h3 style="font-size: 1.45rem; font-weight: 800; color: #ffffff; margin-top: 0.3rem;">₹67,000.00</h3>
+            <span style="font-size: 0.75rem; color: #94a3b8;">4 credited sources</span>
+          </div>
+          <div class="metric-pill">
+            <span style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase;">Total Expenses</span>
+            <h3 style="font-size: 1.45rem; font-weight: 800; color: #ef4444; margin-top: 0.3rem;">₹24,150.00</h3>
+            <span style="font-size: 0.75rem; color: #f87171;"><i class="fa-solid fa-shield-heart"></i> Under 60% of income</span>
+          </div>
+          <div class="metric-pill">
+            <span style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase;">Savings Progress</span>
+            <h3 style="font-size: 1.45rem; font-weight: 800; color: #3b82f6; margin-top: 0.3rem;">₹1,34,000.00</h3>
+            <span style="font-size: 0.75rem; color: #60a5fa;">3 goals on track</span>
+          </div>
+        </div>
+
+        <div class="grid-cols-2" style="background: rgba(15, 23, 42, 0.4); border-radius: var(--radius-md); padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.05); align-items: center;">
+          <div>
+            <span class="badge badge-warning" style="margin-bottom: 0.75rem;"><i class="fa-solid fa-triangle-exclamation"></i> Budget Warning Triggered</span>
+            <h4 style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem;">Food & Dining (89% Consumed)</h4>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.8rem;">You've spent ₹6,690 of your ₹7,500 monthly dining allowance. 12 days remaining.</p>
+            <div class="progress-track" style="height: 8px;">
+              <div class="progress-bar progress-warning" style="width: 89%;"></div>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <span class="badge badge-success" style="margin-bottom: 0.75rem;"><i class="fa-solid fa-laptop"></i> Goal Highlight</span>
+            <h4 style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem;">Apple MacBook Pro M3</h4>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.8rem;">₹82,500 / ₹1,25,000 Saved (66% Complete)</p>
+            <div class="progress-track" style="height: 8px;">
+              <div class="progress-bar progress-info" style="width: 66%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES SECTION -->
+  <section id="features" class="features-section">
+    <div class="section-head">
+      <span class="landing-badge">Core Capabilities</span>
+      <h2 class="section-title">Everything You Need to Master Your Money</h2>
+      <p class="section-subtitle">Designed ground-up to eliminate the guesswork from student budgets, roommates bills, and personal financial goals.</p>
+    </div>
+
+    <div class="grid-cols-4" style="max-width: 1200px; margin: 0 auto; gap: 1.75rem;">
+      <!-- Feature 1 -->
+      <div class="feature-box">
+        <div class="feature-icon-wrapper">
+          <i class="fa-solid fa-receipt"></i>
+        </div>
+        <h3 class="feature-title">Smart Expense Tracking</h3>
+        <p class="feature-desc">Record expenses in seconds with payment methods (UPI, Card, Cash), categories, receipts notes, and real-time balance calculations.</p>
+      </div>
+
+      <!-- Feature 2 -->
+      <div class="feature-box">
+        <div class="feature-icon-wrapper" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+          <i class="fa-solid fa-chart-pie"></i>
+        </div>
+        <h3 class="feature-title">Dynamic Budgets & Alerts</h3>
+        <p class="feature-desc">Set limits for Dining, Shopping, or Travel. Get smart color warnings at 80% and instant alerts when you're about to overspend.</p>
+      </div>
+
+      <!-- Feature 3 -->
+      <div class="feature-box">
+        <div class="feature-icon-wrapper" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
+          <i class="fa-solid fa-bullseye"></i>
+        </div>
+        <h3 class="feature-title">Milestone Savings Goals</h3>
+        <p class="feature-desc">Saving for a new laptop, semester fees, or a trip? Set target amounts and dates, deposit funds, and monitor live progress meters.</p>
+      </div>
+
+      <!-- Feature 4 -->
+      <div class="feature-box">
+        <div class="feature-icon-wrapper" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+          <i class="fa-solid fa-chart-line"></i>
+        </div>
+        <h3 class="feature-title">Visual Reports & CSV</h3>
+        <p class="feature-desc">Interactive Chart.js breakdowns, income vs expenses trends, downloadable CSV spreadsheets, and clean printable statements.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="landing-footer">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: gap; gap: 2rem;">
+      <div>
+        <div class="brand-link" style="margin-bottom: 0.5rem;">
+          <div class="brand-icon" style="width: 32px; height: 32px; font-size: 0.95rem;">
+            <i class="fa-solid fa-wallet"></i>
+          </div>
+          <span style="font-weight: 800; color: #fff;">MoneyMate</span>
+        </div>
+        <p style="font-size: 0.85rem; color: #64748b;">Smart, responsive expense tracking & financial discipline for students and individuals.</p>
+      </div>
+
+      <div style="display: flex; gap: 1.5rem; font-size: 0.9rem;">
+        <a href="{% url 'login' %}" style="color: #94a3b8; text-decoration: none;">Sign In</a>
+        <a href="{% url 'register' %}" style="color: #94a3b8; text-decoration: none;">Create Account</a>
+        <a href="#features" style="color: #94a3b8; text-decoration: none;">Features</a>
+      </div>
+    </div>
+
+    <div style="max-width: 1200px; margin: 2.5rem auto 0; padding-top: 1.5rem; border-top: 1px solid rgba(255, 255, 255, 0.06); text-align: center; font-size: 0.8rem; color: #475569;">
+      &copy; {% now 'Y' %} MoneyMate – Smart Expense Tracker. Built with Python Django, HTML5, CSS3, & Chart.js.
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+{% load tracker_tags %}
+
+{% block title %}Transactions – MoneyMate{% endblock %}
+{% block page_title %}Transactions{% endblock %}
+{% block page_subtitle %}Search, filter, track, and manage all your expense and income records.{% endblock %}
+
+{% block content %}
+
+<!-- FILTER & SUMMARY BAR -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <!-- Range Aggregate Metrics -->
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border);">
+    <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+      <div>
+        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Filtered Spending</span>
+        <div style="font-size: 1.5rem; font-weight: 800; color: #ef4444;">
+          {{ filtered_spending|currency:user_currency }}
+        </div>
+      </div>
+      <div>
+        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Filtered Income</span>
+        <div style="font-size: 1.5rem; font-weight: 800; color: #10b981;">
+          {{ filtered_income|currency:user_currency }}
+        </div>
+      </div>
+      <div>
+        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Net Balance</span>
+        <div style="font-size: 1.5rem; font-weight: 800; color: {% if filtered_income >= filtered_spending %}var(--primary){% else %}var(--danger){% endif %};">
+          {{ filtered_income|sub:filtered_spending|currency:user_currency }}
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem;">
+      <a href="{% url 'export_csv' %}" class="btn btn-secondary btn-sm" title="Download spreadsheet of current transactions">
+        <i class="fa-solid fa-file-csv"></i> Export to CSV
+      </a>
+      <button onclick="openModal('quickAddModal')" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-plus"></i> New Transaction
+      </button>
+    </div>
+  </div>
+
+  <!-- Multi-Faceted Filters Form -->
+  <form method="GET" action="{% url 'transactions' %}" style="padding-top: 1.25rem;">
+    <div class="grid-cols-4" style="grid-template-columns: 2fr 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+      <!-- Search Input -->
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Search Query</label>
+        <div style="position: relative;">
+          <input type="text" name="q" value="{{ current_q }}" class="form-input" style="padding-left: 2.2rem;" placeholder="Search title, notes, or category...">
+          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+        </div>
+      </div>
+
+      <!-- Type Filter -->
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Type</label>
+        <select name="type" class="form-select">
+          <option value="">All Types</option>
+          <option value="expense" {% if current_type == 'expense' %}selected{% endif %}>Expenses Only</option>
+          <option value="income" {% if current_type == 'income' %}selected{% endif %}>Income Only</option>
+        </select>
+      </div>
+
+      <!-- Category Filter -->
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Category</label>
+        <select name="category" class="form-select">
+          <option value="">All Categories</option>
+          {% for cat in categories %}
+            <option value="{{ cat.id }}" {% if current_category == cat.id|stringformat:"s" %}selected{% endif %}>
+              {{ cat.name }} ({{ cat.get_category_type_display }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Sort By -->
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Sort By</label>
+        <select name="sort" class="form-select">
+          <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest First</option>
+          <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Oldest First</option>
+          <option value="highest" {% if current_sort == 'highest' %}selected{% endif %}>Highest Amount</option>
+          <option value="lowest" {% if current_sort == 'lowest' %}selected{% endif %}>Lowest Amount</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Second Row: Date & Payment Method Filters -->
+    <div class="grid-cols-4" style="gap: 1rem; align-items: flex-end;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">From Date</label>
+        <input type="date" name="start_date" value="{{ current_start_date }}" class="form-input">
+      </div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">To Date</label>
+        <input type="date" name="end_date" value="{{ current_end_date }}" class="form-input">
+      </div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Payment Method</label>
+        <select name="payment_method" class="form-select">
+          <option value="">All Methods</option>
+          {% for code, name in payment_methods %}
+            <option value="{{ code }}" {% if current_payment_method == code %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="submit" class="btn btn-primary" style="flex: 1;">
+          <i class="fa-solid fa-filter"></i> Apply
+        </button>
+        <a href="{% url 'transactions' %}" class="btn btn-secondary" title="Reset Filters">
+          <i class="fa-solid fa-rotate-left"></i>
+        </a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- TRANSACTIONS TABLE -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title"><i class="fa-solid fa-list-check text-primary" style="color: var(--primary);"></i>All Records</h3>
+      <p class="card-subtitle">Showing {{ page_obj.start_index|default:0 }} - {{ page_obj.end_index|default:0 }} of {{ page_obj.paginator.count }} transactions</p>
+    </div>
+  </div>
+
+  {% if transactions %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Payment Method</th>
+            <th>Type</th>
+            <th style="text-align: right;">Amount</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tx in transactions %}
+            <tr>
+              <td style="color: var(--text-muted); font-size: 0.85rem; font-family: var(--font-mono);">
+                {{ tx.date|date:"d M Y" }}
+              </td>
+              <td>
+                <div style="font-weight: 600; color: var(--text-main);">{{ tx.title }}</div>
+                {% if tx.notes %}
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">{{ tx.notes }}</div>
+                {% endif %}
+              </td>
+              <td>
+                {% if tx.category %}
+                  <span class="category-pill" style="background-color: rgba(16, 185, 129, 0.1); color: var(--text-main);">
+                    <i class="fa-solid {{ tx.category.icon }}" style="color: {{ tx.category.color }};"></i>
+                    {{ tx.category.name }}
+                  </span>
+                {% else %}
+                  <span class="badge badge-muted">Uncategorized</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge badge-muted" style="text-transform: capitalize;">
+                  <i class="fa-regular fa-credit-card"></i> {{ tx.get_payment_method_display }}
+                </span>
+              </td>
+              <td>
+                {% if tx.transaction_type == 'income' %}
+                  <span class="badge badge-success"><i class="fa-solid fa-arrow-down"></i> Income</span>
+                {% else %}
+                  <span class="badge badge-danger"><i class="fa-solid fa-arrow-up"></i> Expense</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right; font-weight: 700; font-size: 1rem; color: {% if tx.transaction_type == 'income' %}#10b981{% else %}#ef4444{% endif %};">
+                {% if tx.transaction_type == 'income' %}+{% else %}-{% endif %}{{ tx.amount|currency:user_currency }}
+              </td>
+              <td style="text-align: right;">
+                <div style="display: inline-flex; gap: 0.35rem;">
+                  <a href="{% url 'transaction_edit' tx.id %}" class="btn btn-secondary btn-icon" title="Edit">
+                    <i class="fa-solid fa-pen-to-square" style="font-size: 0.85rem;"></i>
+                  </a>
+                  <form action="{% url 'transaction_delete' tx.id %}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete \'{{ tx.title|escapejs }}\'?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary btn-icon" style="color: var(--danger);" title="Delete">
+                      <i class="fa-solid fa-trash-can" style="font-size: 0.85rem;"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PAGINATION CONTROLS -->
+    {% if page_obj.has_other_pages %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1.5rem; margin-top: 1rem; border-top: 1px solid var(--border);">
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ current_q }}&type={{ current_type }}&category={{ current_category }}&sort={{ current_sort }}&start_date={{ current_start_date }}&end_date={{ current_end_date }}&payment_method={{ current_payment_method }}" class="btn btn-secondary btn-sm">
+              <i class="fa-solid fa-chevron-left"></i> Previous
+            </a>
+          {% endif %}
+
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ current_q }}&type={{ current_type }}&category={{ current_category }}&sort={{ current_sort }}&start_date={{ current_start_date }}&end_date={{ current_end_date }}&payment_method={{ current_payment_method }}" class="btn btn-secondary btn-sm">
+              Next <i class="fa-solid fa-chevron-right"></i>
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="fa-solid fa-filter-circle-xmark"></i></div>
+      <h4 class="empty-title">No Transactions Matched</h4>
+      <p class="empty-desc">No records found for the applied search criteria or date filters. Try resetting the filters or add a new transaction.</p>
+      <div style="display: flex; gap: 0.75rem;">
+        <a href="{% url 'transactions' %}" class="btn btn-secondary"><i class="fa-solid fa-rotate-left"></i> Reset Filters</a>
+        <button onclick="openModal('quickAddModal')" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Transaction</button>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

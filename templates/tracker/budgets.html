@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+{% load tracker_tags %}
+
+{% block title %}Smart Budgets – MoneyMate{% endblock %}
+{% block page_title %}Budget Management{% endblock %}
+{% block page_subtitle %}Plan your monthly limits, prevent overspending, and track consumption.{% endblock %}
+
+{% block content %}
+
+<!-- MONTH SELECTION & CONTROLS BAR -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <!-- Month / Year Selector Form -->
+    <form method="GET" action="{% url 'budgets' %}" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <label class="form-label" style="margin-bottom: 0; font-size: 0.9rem;">
+        <i class="fa-regular fa-calendar-days text-primary" style="color: var(--primary);"></i> Select Period:
+      </label>
+      <select name="month" class="form-select" style="width: auto; padding: 0.45rem 1rem;" onchange="this.form.submit()">
+        {% for m_num, m_name in months_list %}
+          <option value="{{ m_num }}" {% if selected_month == m_num %}selected{% endif %}>{{ m_name }}</option>
+        {% endfor %}
+      </select>
+      <select name="year" class="form-select" style="width: auto; padding: 0.45rem 1rem;" onchange="this.form.submit()">
+        {% for y in years_list %}
+          <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </form>
+
+    <div style="display: flex; gap: 0.75rem;">
+      <button onclick="openModal('resetBudgetModal')" class="btn btn-secondary btn-sm" title="Copy budget limits to another month">
+        <i class="fa-solid fa-arrows-rotate"></i> Roll-over Budgets
+      </button>
+      <button onclick="openModal('addBudgetModal')" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-plus"></i> Set Category Budget
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MONTHLY BUDGET OVERVIEW STATS -->
+<div class="grid-cols-3" style="margin-bottom: 2rem;">
+  <div class="stat-card stat-budget">
+    <div class="stat-info">
+      <span class="stat-label">Total Allocated Budget</span>
+      <span class="stat-value" style="color: #f59e0b;">{{ total_budgeted|currency:user_currency }}</span>
+      <span class="stat-sub">For {{ selected_month_name }} {{ selected_year }}</span>
+    </div>
+    <div class="stat-icon icon-budget"><i class="fa-solid fa-coins"></i></div>
+  </div>
+
+  <div class="stat-card stat-expense">
+    <div class="stat-info">
+      <span class="stat-label">Total Spent So Far</span>
+      <span class="stat-value" style="color: #ef4444;">{{ total_spent|currency:user_currency }}</span>
+      <span class="stat-sub">{{ raw_overall_percentage }}% of budget consumed</span>
+    </div>
+    <div class="stat-icon icon-expense"><i class="fa-solid fa-receipt"></i></div>
+  </div>
+
+  <div class="stat-card stat-balance">
+    <div class="stat-info">
+      <span class="stat-label">Remaining Safe Spend</span>
+      <span class="stat-value" style="color: {% if total_remaining >= 0 %}var(--primary){% else %}var(--danger){% endif %};">
+        {{ total_remaining|currency:user_currency }}
+      </span>
+      <span class="stat-sub">
+        {% if total_remaining >= 0 %}Within budget limits{% else %}Overspent by {{ total_remaining|abs_val|currency:user_currency }}{% endif %}
+      </span>
+    </div>
+    <div class="stat-icon icon-balance"><i class="fa-solid fa-shield-halved"></i></div>
+  </div>
+</div>
+
+<!-- ACTIVE ALERTS / WARNINGS BANNER -->
+{% if exceeded_budgets or warning_budgets %}
+<div style="margin-bottom: 2rem;">
+  {% for b in exceeded_budgets %}
+    <div class="alert alert-danger" style="margin-bottom: 0.75rem;">
+      <i class="fa-solid fa-circle-exclamation" style="font-size: 1.2rem;"></i>
+      <div>
+        <strong>Budget Exceeded!</strong> You have exceeded the monthly budget limit for <strong>{{ b.category.name }}</strong> (Spent {{ b.get_spent_amount|currency:user_currency }} vs {{ b.amount|currency:user_currency }} limit).
+      </div>
+    </div>
+  {% endfor %}
+
+  {% for b in warning_budgets %}
+    <div class="alert alert-warning" style="margin-bottom: 0.75rem;">
+      <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.2rem;"></i>
+      <div>
+        <strong>80% Threshold Warning:</strong> Your spending in <strong>{{ b.category.name }}</strong> is at <strong>{{ b.get_raw_spent_percentage }}%</strong> of the allocated limit. Slow down to avoid overspending!
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- CATEGORY BUDGETS GRID -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title">
+        <i class="fa-solid fa-chart-pie text-primary" style="color: var(--primary);"></i>
+        Category Budget Cards – {{ selected_month_name }} {{ selected_year }}
+      </h3>
+      <p class="card-subtitle">Visual progress indicators, remaining balances, and alert states</p>
+    </div>
+  </div>
+
+  {% if budget_items %}
+    <div class="grid-cols-2" style="gap: 1.5rem;">
+      {% for item in budget_items %}
+        <div class="card" style="background: var(--bg-card); border-color: {% if item.is_exceed %}rgba(239, 68, 68, 0.4){% elif item.is_warn %}rgba(245, 158, 11, 0.4){% else %}var(--border){% endif %};">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <div style="width: 44px; height: 44px; border-radius: var(--radius-md); background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: {{ item.budget.category.color }};">
+                <i class="fa-solid {{ item.budget.category.icon }}"></i>
+              </div>
+              <div>
+                <h4 style="font-size: 1.05rem; font-weight: 700;">{{ item.budget.category.name }}</h4>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">
+                  Limit: <strong>{{ item.budget.amount|currency:user_currency }}</strong>
+                </span>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              {% if item.is_exceed %}
+                <span class="badge badge-danger"><i class="fa-solid fa-triangle-exclamation"></i> Exceeded</span>
+              {% elif item.is_warn %}
+                <span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation"></i> 80%+ Used</span>
+              {% else %}
+                <span class="badge badge-success"><i class="fa-solid fa-check"></i> On Track</span>
+              {% endif %}
+
+              <form action="{% url 'budget_delete' item.budget.id %}" method="POST" onsubmit="return confirm('Remove budget for {{ item.budget.category.name }}?');" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-icon" style="color: var(--danger); width: 32px; height: 32px;" title="Delete Budget">
+                  <i class="fa-solid fa-trash-can" style="font-size: 0.8rem;"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="progress-wrapper">
+            <div class="progress-header">
+              <span>Spent: <strong>{{ item.spent|currency:user_currency }}</strong></span>
+              <span style="font-weight: 700; color: {% if item.is_exceed %}var(--danger){% elif item.is_warn %}var(--warning){% else %}var(--primary){% endif %};">
+                {{ item.raw_percentage }}%
+              </span>
+            </div>
+            <div class="progress-track" style="height: 12px;">
+              <div class="progress-bar {% if item.is_exceed %}progress-danger{% elif item.is_warn %}progress-warning{% else %}progress-success{% endif %}"
+                   style="width: {{ item.percentage }}%;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">
+              {% if item.remaining >= 0 %}
+                <span>Remaining: <strong style="color: var(--primary);">{{ item.remaining|currency:user_currency }}</strong></span>
+              {% else %}
+                <span>Over budget by: <strong style="color: var(--danger);">{{ item.remaining|abs_val|currency:user_currency }}</strong></span>
+              {% endif %}
+              <span>{{ selected_month_name }} {{ selected_year }}</span>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="fa-solid fa-wallet"></i></div>
+      <h4 class="empty-title">No Budgets Defined for {{ selected_month_name }} {{ selected_year }}</h4>
+      <p class="empty-desc">Set spending guardrails for each category or roll-over previous month's targets in a single click.</p>
+      <div style="display: flex; gap: 0.75rem;">
+        <button onclick="openModal('addBudgetModal')" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Set Category Budget</button>
+        <button onclick="openModal('resetBudgetModal')" class="btn btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Roll-over Budgets</button>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- MODAL: ADD BUDGET -->
+<div id="addBudgetModal" class="modal-overlay">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="fa-solid fa-plus text-primary" style="color: var(--primary); margin-right: 0.5rem;"></i>Create / Update Budget</h3>
+      <button class="modal-close-btn" onclick="closeModal('addBudgetModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form action="{% url 'budget_add' %}" method="POST">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Expense Category</label>
+          {{ budget_form.category }}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monthly Limit ({{ user_currency }})</label>
+          {{ budget_form.amount }}
+        </div>
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Month</label>
+            {{ budget_form.month }}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Year</label>
+            {{ budget_form.year }}
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addBudgetModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Budget</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: ROLL-OVER BUDGETS -->
+<div id="resetBudgetModal" class="modal-overlay">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="fa-solid fa-arrows-rotate text-primary" style="color: var(--primary); margin-right: 0.5rem;"></i>Roll-over Monthly Budgets</h3>
+      <button class="modal-close-btn" onclick="closeModal('resetBudgetModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form action="{% url 'budget_reset' %}" method="POST">
+      {% csrf_token %}
+      <div class="modal-body">
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          Duplicate your category budget amounts into a new month without losing any past transactions or history.
+        </p>
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Copy From (Month)</label>
+            <select name="source_month" class="form-select">
+              {% for m_num, m_name in months_list %}
+                <option value="{{ m_num }}" {% if selected_month == m_num %}selected{% endif %}>{{ m_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Copy From (Year)</label>
+            <select name="source_year" class="form-select">
+              {% for y in years_list %}
+                <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Destination Month</label>
+            <select name="target_month" class="form-select">
+              {% for m_num, m_name in months_list %}
+                <option value="{{ m_num }}" {% if selected_month == m_num %}selected{% endif %}>{{ m_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Destination Year</label>
+            <select name="target_year" class="form-select">
+              {% for y in years_list %}
+                <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('resetBudgetModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-copy"></i> Duplicate Budgets</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

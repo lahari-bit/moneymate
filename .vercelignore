@@ -1,0 +1,10 @@
+db.sqlite3
+staticfiles/
+*.pyc
+__pycache__/
+.git/
+.gitignore
+.env
+venv/
+env/
+.system_generated/

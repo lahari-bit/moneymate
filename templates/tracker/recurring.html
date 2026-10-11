@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load tracker_tags %}
+
+{% block title %}Recurring Bills – MoneyMate{% endblock %}
+{% block page_title %}Recurring Bills & Subscriptions{% endblock %}
+{% block page_subtitle %}Never forget rent, WiFi, Spotify, or tuition installments.{% endblock %}
+
+{% block content %}
+
+<!-- SUMMARY STATS -->
+<div class="grid-cols-3" style="margin-bottom: 2rem;">
+  <div class="stat-card stat-budget">
+    <div class="stat-info">
+      <span class="stat-label">Committed Monthly Bills</span>
+      <span class="stat-value" style="color: #f59e0b;">{{ total_monthly_committed|currency:user_currency }}</span>
+      <span class="stat-sub">Estimated monthly fixed commitments</span>
+    </div>
+    <div class="stat-icon icon-budget"><i class="fa-solid fa-repeat"></i></div>
+  </div>
+
+  <div class="stat-card stat-balance">
+    <div class="stat-info">
+      <span class="stat-label">Active Subscriptions</span>
+      <span class="stat-value" style="color: #8b5cf6;">{{ recurring_items.count }}</span>
+      <span class="stat-sub">Automated & recurring obligations</span>
+    </div>
+    <div class="stat-icon icon-balance"><i class="fa-solid fa-list-check"></i></div>
+  </div>
+
+  <div class="stat-card stat-income">
+    <div class="stat-info">
+      <span class="stat-label">Upcoming Deadlines</span>
+      <span class="stat-value" style="color: #10b981;">On Schedule</span>
+      <span class="stat-sub">Review and process with one click</span>
+    </div>
+    <div class="stat-icon icon-income"><i class="fa-regular fa-calendar-check"></i></div>
+  </div>
+</div>
+
+<!-- RECURRING EXPENSES TABLE -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title">
+        <i class="fa-solid fa-clock-rotate-left text-primary" style="color: var(--primary);"></i>
+        Active Recurring Rules
+      </h3>
+      <p class="card-subtitle">Manage frequencies and trigger instant transaction recordings</p>
+    </div>
+    <button onclick="openModal('addRecurringModal')" class="btn btn-primary btn-sm">
+      <i class="fa-solid fa-plus"></i> New Recurring Expense
+    </button>
+  </div>
+
+  {% if recurring_items %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Frequency</th>
+            <th>Payment Method</th>
+            <th>Next Due Date</th>
+            <th style="text-align: right;">Amount</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in recurring_items %}
+            <tr>
+              <td>
+                <strong style="color: var(--text-main);">{{ item.title }}</strong>
+                {% if item.notes %}
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">{{ item.notes }}</div>
+                {% endif %}
+              </td>
+              <td>
+                {% if item.category %}
+                  <span class="category-pill" style="background-color: rgba(16, 185, 129, 0.1); color: var(--text-main);">
+                    <i class="fa-solid {{ item.category.icon }}" style="color: {{ item.category.color }};"></i>
+                    {{ item.category.name }}
+                  </span>
+                {% else %}
+                  <span class="badge badge-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge badge-info" style="text-transform: capitalize;">
+                  <i class="fa-solid fa-arrows-rotate"></i> {{ item.get_frequency_display }}
+                </span>
+              </td>
+              <td>
+                <span class="badge badge-muted" style="text-transform: capitalize;">
+                  {{ item.get_payment_method_display }}
+                </span>
+              </td>
+              <td style="font-family: var(--font-mono); font-size: 0.85rem;">
+                {{ item.next_due_date|date:"d M Y" }}
+              </td>
+              <td style="text-align: right; font-weight: 700; color: #ef4444; font-size: 1rem;">
+                {{ item.amount|currency:user_currency }}
+              </td>
+              <td style="text-align: right;">
+                <div style="display: inline-flex; gap: 0.35rem;">
+                  <!-- Process Now -->
+                  <a href="{% url 'recurring_process' item.id %}" class="btn btn-primary btn-sm" title="Record this bill as paid now">
+                    <i class="fa-solid fa-check"></i> Pay Now
+                  </a>
+                  <!-- Delete -->
+                  <form action="{% url 'recurring_delete' item.id %}" method="POST" onsubmit="return confirm('Delete recurring expense \'{{ item.title|escapejs }}\'?');" style="margin: 0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary btn-icon" style="color: var(--danger);" title="Delete Rule">
+                      <i class="fa-solid fa-trash-can" style="font-size: 0.85rem;"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="fa-solid fa-repeat"></i></div>
+      <h4 class="empty-title">No Recurring Bills Registered</h4>
+      <p class="empty-desc">Track subscriptions like Netflix, Spotify, gym memberships, or hostel room rent so you never miss a payment.</p>
+      <button onclick="openModal('addRecurringModal')" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Recurring Expense</button>
+    </div>
+  {% endif %}
+</div>
+
+<!-- MODAL: ADD RECURRING EXPENSE -->
+<div id="addRecurringModal" class="modal-overlay">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="fa-solid fa-repeat text-primary" style="color: var(--primary); margin-right: 0.5rem;"></i>New Recurring Bill</h3>
+      <button class="modal-close-btn" onclick="closeModal('addRecurringModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form action="{% url 'recurring_add' %}" method="POST">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Subscription / Bill Title</label>
+          {{ form.title }}
+        </div>
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Amount ({{ user_currency }})</label>
+            {{ form.amount }}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            {{ form.category }}
+          </div>
+        </div>
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Billing Frequency</label>
+            {{ form.frequency }}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Method</label>
+            {{ form.payment_method }}
+          </div>
+        </div>
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            {{ form.start_date }}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Next Due Date</label>
+            {{ form.next_due_date }}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notes & Details</label>
+          {{ form.notes }}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addRecurringModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Register Rule</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

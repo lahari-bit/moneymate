@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load tracker_tags %}
+
+{% block title %}Settings & Profile – MoneyMate{% endblock %}
+{% block page_title %}Settings & Preferences{% endblock %}
+{% block page_subtitle %}Manage your account details, default currency, visual theme, and demo datasets.{% endblock %}
+
+{% block content %}
+
+<div class="grid-cols-2" style="gap: 2rem;">
+  <!-- LEFT COLUMN: PROFILE & PREFERENCES -->
+  <div>
+    <!-- Profile & Currency Settings -->
+    <div class="card" style="margin-bottom: 2rem;">
+      <div class="card-header">
+        <h3 class="card-title">
+          <i class="fa-solid fa-user-gear text-primary" style="color: var(--primary);"></i>
+          Account Profile & Currency
+        </h3>
+      </div>
+
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_profile">
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input type="text" name="first_name" class="form-input" value="{{ request.user.first_name }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" name="last_name" class="form-input" value="{{ request.user.last_name }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" name="email" class="form-input" value="{{ request.user.email }}">
+        </div>
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Primary Currency</label>
+            <select name="currency" class="form-select">
+              {% for code, label in currency_choices %}
+                <option value="{{ code }}" {% if profile.currency == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Visual Theme</label>
+            <select name="theme" class="form-select">
+              <option value="light" {% if profile.theme == 'light' %}selected{% endif %}>☀️ Light Mode</option>
+              <option value="dark" {% if profile.theme == 'dark' %}selected{% endif %}>🌙 Dark Mode</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Occupation / Tagline</label>
+            <input type="text" name="occupation" class="form-input" value="{{ profile.occupation|default:'' }}" placeholder="e.g. Engineering Student, Freelancer">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="text" name="phone" class="form-input" value="{{ profile.phone|default:'' }}" placeholder="+91 98765 43210">
+          </div>
+        </div>
+
+        <div style="margin-top: 1.25rem;">
+          <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Save Profile Settings
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Password Change Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">
+          <i class="fa-solid fa-key text-primary" style="color: var(--primary);"></i>
+          Change Password
+        </h3>
+      </div>
+
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="change_password">
+
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <input type="password" name="old_password" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <input type="password" name="new_password1" class="form-input" required minlength="6">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Confirm New Password</label>
+          <input type="password" name="new_password2" class="form-input" required minlength="6">
+        </div>
+
+        <div style="margin-top: 1.25rem;">
+          <button type="submit" class="btn btn-secondary">
+            <i class="fa-solid fa-lock"></i> Update Password
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: DEMO DATA & DANGER ZONE -->
+  <div>
+    <!-- Demo Data Showcase Card -->
+    <div class="card" style="margin-bottom: 2rem; border-left: 4px solid var(--primary);">
+      <div class="card-header">
+        <h3 class="card-title">
+          <i class="fa-solid fa-wand-magic-sparkles text-primary" style="color: var(--primary);"></i>
+          Instant Demo Data Loader
+        </h3>
+      </div>
+
+      <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.25rem;">
+        Testing or presenting MoneyMate for a project evaluation? One-click demo data populates:
+      </p>
+
+      <ul style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.4rem;">
+        <li>25+ realistic income & expense transactions (Groceries, Tech Courses, Metro, Dining, Stipend, Freelance)</li>
+        <li>Active monthly budgets with 80% threshold warnings and exceeded alert states</li>
+        <li>Milestone savings goals with active progress meters (MacBook Pro, Emergency Fund, Road Trip)</li>
+        <li>Recurring bills (Broadband, Rent, Gym) and alert notifications</li>
+      </ul>
+
+      <a href="{% url 'load_demo_data' %}" class="btn btn-primary" onclick="return confirm('Load realistic sample financial data into your account?');">
+        <i class="fa-solid fa-bolt"></i> Populate Sample Dataset Now
+      </a>
+    </div>
+
+    <!-- Data Reset & Danger Zone -->
+    <div class="card" style="border-left: 4px solid var(--danger);">
+      <div class="card-header">
+        <h3 class="card-title" style="color: var(--danger);">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          Data Management & Reset
+        </h3>
+      </div>
+
+      <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.25rem;">
+        Need a clean slate? Resetting will permanently clear all your transactions, budgets, recurring bills, and savings goals while keeping your login account active.
+      </p>
+
+      <form action="{% url 'clear_data' %}" method="POST" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete all your financial records? This action cannot be undone.');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">
+          <i class="fa-solid fa-trash-can"></i> Clear All Financial Data
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

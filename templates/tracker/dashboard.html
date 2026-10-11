@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+{% load tracker_tags %}
+
+{% block title %}Dashboard – MoneyMate{% endblock %}
+{% block page_title %}Dashboard Overview{% endblock %}
+{% block page_subtitle %}Your live financial health, current month spending, and smart alerts.{% endblock %}
+
+{% block content %}
+
+<!-- DEMO DATA CALLOUT IF BRAND NEW ACCOUNT -->
+{% if not recent_transactions %}
+<div class="card" style="margin-bottom: 2rem; border-left: 4px solid var(--primary); background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, var(--bg-card) 100%);">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
+        <i class="fa-solid fa-wand-magic-sparkles text-primary" style="color: var(--primary);"></i>
+        Welcome to MoneyMate! Your dashboard is fresh & ready.
+      </h3>
+      <p style="font-size: 0.88rem; color: var(--text-muted);">
+        Start adding your daily transactions, or populate instant realistic demo data to see the live charts, budget warnings, and savings goals in action!
+      </p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+      <a href="{% url 'load_demo_data' %}" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-bolt"></i> Populate Sample Data
+      </a>
+      <button onclick="openModal('quickAddModal')" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-plus"></i> Add First Expense
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- 5 SUMMARY METRIC CARDS -->
+<div class="grid-cols-4" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 2rem; gap: 1.25rem;">
+  <!-- Total Balance -->
+  <div class="stat-card stat-balance">
+    <div class="stat-info">
+      <span class="stat-label">Total Balance</span>
+      <span class="stat-value" style="color: {% if total_balance >= 0 %}var(--primary){% else %}var(--danger){% endif %};">
+        {{ total_balance|currency:user_currency }}
+      </span>
+      <span class="stat-sub">
+        <i class="fa-solid fa-wallet"></i> Net Available
+      </span>
+    </div>
+    <div class="stat-icon icon-balance">
+      <i class="fa-solid fa-scale-balanced"></i>
+    </div>
+  </div>
+
+  <!-- Total Income -->
+  <div class="stat-card stat-income">
+    <div class="stat-info">
+      <span class="stat-label">Total Income</span>
+      <span class="stat-value" style="color: #10b981;">
+        {{ total_income|currency:user_currency }}
+      </span>
+      <span class="stat-sub">
+        <i class="fa-solid fa-arrow-down-long"></i> {{ month_income|currency:user_currency }} this month
+      </span>
+    </div>
+    <div class="stat-icon icon-income">
+      <i class="fa-solid fa-arrow-trend-up"></i>
+    </div>
+  </div>
+
+  <!-- Total Expenses -->
+  <div class="stat-card stat-expense">
+    <div class="stat-info">
+      <span class="stat-label">Total Expenses</span>
+      <span class="stat-value" style="color: #ef4444;">
+        {{ total_expenses|currency:user_currency }}
+      </span>
+      <span class="stat-sub">
+        <i class="fa-solid fa-arrow-up-long"></i> {{ month_expenses|currency:user_currency }} this month
+      </span>
+    </div>
+    <div class="stat-icon icon-expense">
+      <i class="fa-solid fa-arrow-trend-down"></i>
+    </div>
+  </div>
+
+  <!-- Remaining Budget -->
+  <div class="stat-card stat-budget">
+    <div class="stat-info">
+      <span class="stat-label">Remaining Budget</span>
+      <span class="stat-value" style="color: #f59e0b;">
+        {{ remaining_budget|currency:user_currency }}
+      </span>
+      <span class="stat-sub">
+        <i class="fa-solid fa-shield-halved"></i> Of {{ total_budget_limit|currency:user_currency }} limit
+      </span>
+    </div>
+    <div class="stat-icon icon-budget">
+      <i class="fa-solid fa-pie-chart"></i>
+    </div>
+  </div>
+
+  <!-- Total Savings -->
+  <div class="stat-card stat-savings">
+    <div class="stat-info">
+      <span class="stat-label">Total Savings</span>
+      <span class="stat-value" style="color: #3b82f6;">
+        {{ total_savings|currency:user_currency }}
+      </span>
+      <span class="stat-sub">
+        <i class="fa-solid fa-bullseye"></i> In goal vaults
+      </span>
+    </div>
+    <div class="stat-icon icon-savings">
+      <i class="fa-solid fa-piggy-bank"></i>
+    </div>
+  </div>
+</div>
+
+<!-- CHARTS SECTION: ROW 1 (Monthly Comparison & Category Doughnut) -->
+<div class="grid-cols-2-1" style="margin-bottom: 2rem;">
+  <!-- Monthly Income vs Expenses (Bar) -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><i class="fa-solid fa-chart-column text-primary" style="color: var(--primary);"></i>Income vs Expenses</h3>
+        <p class="card-subtitle">Monthly cash-in vs cash-out trajectory (Past 6 Months)</p>
+      </div>
+      <a href="{% url 'reports' %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">Full Report</a>
+    </div>
+    <div style="height: 300px; position: relative;">
+      <canvas id="monthlyComparisonChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Category Expenses (Doughnut) -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><i class="fa-solid fa-chart-pie" style="color: #f59e0b;"></i>Category Breakdown</h3>
+        <p class="card-subtitle">Current month spending by category</p>
+      </div>
+      <a href="{% url 'transactions' %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">Filter</a>
+    </div>
+    <div style="height: 300px; position: relative;">
+      <canvas id="categoryDoughnutChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- CHARTS SECTION: ROW 2 (Weekly Spending Trend & Active Budgets Tracker) -->
+<div class="grid-cols-2" style="margin-bottom: 2rem;">
+  <!-- Weekly Spending Line Chart -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><i class="fa-solid fa-wave-square" style="color: var(--primary);"></i>Weekly Spending Trends</h3>
+        <p class="card-subtitle">Daily expenses recorded over the last 7 days</p>
+      </div>
+      <span class="badge badge-info"><i class="fa-regular fa-calendar"></i> Last 7 Days</span>
+    </div>
+    <div style="height: 260px; position: relative;">
+      <canvas id="weeklySpendingChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Active Budgets Live Gauge -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><i class="fa-solid fa-gauge" style="color: #ec4899;"></i>Active Monthly Budgets</h3>
+        <p class="card-subtitle">Real-time consumption status & limit warnings</p>
+      </div>
+      <a href="{% url 'budgets' %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">Manage All</a>
+    </div>
+
+    {% if active_budgets %}
+      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+        {% for budget in active_budgets %}
+          <div>
+            <div class="progress-header">
+              <span style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fa-solid {{ budget.category.icon }}" style="color: {{ budget.category.color }};"></i>
+                {{ budget.category.name }}
+              </span>
+              <span>
+                <strong>{{ budget.get_spent_amount|currency:user_currency }}</strong> / {{ budget.amount|currency:user_currency }}
+                <span class="badge {% if budget.is_exceeded %}badge-danger{% elif budget.is_warning %}badge-warning{% else %}badge-success{% endif %}" style="margin-left: 0.4rem;">
+                  {{ budget.get_raw_spent_percentage }}%
+                </span>
+              </span>
+            </div>
+            <div class="progress-track" style="margin-top: 0.4rem;">
+              <div class="progress-bar {% if budget.is_exceeded %}progress-danger{% elif budget.is_warning %}progress-warning{% else %}progress-success{% endif %}"
+                   style="width: {{ budget.get_spent_percentage }}%;"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state" style="padding: 2.5rem 1rem;">
+        <i class="fa-solid fa-bullseye empty-icon" style="width: 50px; height: 50px; font-size: 1.5rem;"></i>
+        <h4 class="empty-title">No Monthly Budgets Set</h4>
+        <p class="empty-desc">Create category budgets to keep your unnecessary spending firmly in check.</p>
+        <a href="{% url 'budgets' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Set First Budget</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- RECENT TRANSACTIONS TABLE -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title"><i class="fa-solid fa-clock-rotate-left text-primary" style="color: var(--primary);"></i>Recent Transactions</h3>
+      <p class="card-subtitle">Your most recently logged income and expense activities</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+      <a href="{% url 'export_csv' %}" class="btn btn-secondary btn-sm" title="Export CSV">
+        <i class="fa-solid fa-file-csv"></i> Export
+      </a>
+      <a href="{% url 'transactions' %}" class="btn btn-primary btn-sm">
+        <span>View All Transactions</span> <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+  </div>
+
+  {% if recent_transactions %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Payment Method</th>
+            <th>Type</th>
+            <th style="text-align: right;">Amount</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tx in recent_transactions %}
+            <tr>
+              <td style="color: var(--text-muted); font-size: 0.85rem; font-family: var(--font-mono);">
+                {{ tx.date|date:"d M Y" }}
+              </td>
+              <td>
+                <div style="font-weight: 600; color: var(--text-main);">{{ tx.title }}</div>
+                {% if tx.notes %}
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">{{ tx.notes|truncatechars:45 }}</div>
+                {% endif %}
+              </td>
+              <td>
+                {% if tx.category %}
+                  <span class="category-pill" style="background-color: rgba(16, 185, 129, 0.1); color: var(--text-main);">
+                    <i class="fa-solid {{ tx.category.icon }}" style="color: {{ tx.category.color }};"></i>
+                    {{ tx.category.name }}
+                  </span>
+                {% else %}
+                  <span class="badge badge-muted">Uncategorized</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge badge-muted" style="text-transform: capitalize;">
+                  <i class="fa-regular fa-credit-card"></i> {{ tx.get_payment_method_display }}
+                </span>
+              </td>
+              <td>
+                {% if tx.transaction_type == 'income' %}
+                  <span class="badge badge-success"><i class="fa-solid fa-arrow-down"></i> Income</span>
+                {% else %}
+                  <span class="badge badge-danger"><i class="fa-solid fa-arrow-up"></i> Expense</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right; font-weight: 700; font-size: 0.95rem; color: {% if tx.transaction_type == 'income' %}#10b981{% else %}#ef4444{% endif %};">
+                {% if tx.transaction_type == 'income' %}+{% else %}-{% endif %}{{ tx.amount|currency:user_currency }}
+              </td>
+              <td style="text-align: right;">
+                <a href="{% url 'transaction_edit' tx.id %}" class="btn btn-secondary btn-icon" title="Edit">
+                  <i class="fa-solid fa-pen-to-square" style="font-size: 0.85rem;"></i>
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="fa-solid fa-receipt"></i></div>
+      <h4 class="empty-title">No Transactions Yet</h4>
+      <p class="empty-desc">Begin logging your daily expenses or import sample data to watch the dashboard light up.</p>
+      <div style="display: flex; gap: 0.75rem;">
+        <button onclick="openModal('quickAddModal')" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Transaction</button>
+        <a href="{% url 'load_demo_data' %}" class="btn btn-secondary"><i class="fa-solid fa-bolt"></i> Load Sample Data</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const currency = "{{ user_currency }}";
+
+    // 1. Monthly Comparison Chart
+    const monthlyLabels = {{ chart_monthly_labels|safe }};
+    const monthlyIncome = {{ chart_monthly_income|safe }};
+    const monthlyExpenses = {{ chart_monthly_expenses|safe }};
+    initMonthlyComparisonChart('monthlyComparisonChart', monthlyLabels, monthlyIncome, monthlyExpenses, currency);
+
+    // 2. Category Doughnut Chart
+    const categoryLabels = {{ chart_category_labels|safe }};
+    const categoryData = {{ chart_category_data|safe }};
+    const categoryColors = {{ chart_category_colors|safe }};
+    initCategoryChart('categoryDoughnutChart', categoryLabels, categoryData, categoryColors, currency);
+
+    // 3. Weekly Spending Line Chart
+    const weeklyLabels = {{ chart_weekly_labels|safe }};
+    const weeklyExpenses = {{ chart_weekly_expenses|safe }};
+    initWeeklySpendingChart('weeklySpendingChart', weeklyLabels, weeklyExpenses, currency);
+  });
+</script>
+{% endblock %}

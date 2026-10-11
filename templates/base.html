@@ -1,0 +1,249 @@
+{% load static tracker_tags %}
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ user_profile.theme|default:'light' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}MoneyMate – Smart Expense Tracker{% endblock %}</title>
+  
+  <!-- Font Awesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js 4 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- MoneyMate Theme CSS -->
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<div class="app-wrapper">
+  <!-- SIDEBAR NAVIGATION -->
+  <aside class="app-sidebar">
+    <div class="sidebar-brand">
+      <a href="{% url 'dashboard' %}" class="brand-link">
+        <div class="brand-icon">
+          <i class="fa-solid fa-wallet"></i>
+        </div>
+        <div class="brand-name">
+          <span class="brand-title">MoneyMate</span>
+          <span class="brand-subtitle">Smart Expense Tracker</span>
+        </div>
+      </a>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Overview</div>
+      <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <i class="fa-solid fa-gauge-high"></i>
+        <span>Dashboard</span>
+      </a>
+
+      <div class="nav-section-title">Finance Management</div>
+      <a href="{% url 'transactions' %}" class="nav-item {% if 'transaction' in request.resolver_match.url_name %}active{% endif %}">
+        <i class="fa-solid fa-receipt"></i>
+        <span>Transactions</span>
+      </a>
+      <a href="{% url 'budgets' %}" class="nav-item {% if 'budget' in request.resolver_match.url_name %}active{% endif %}">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>Budgets</span>
+      </a>
+      <a href="{% url 'savings' %}" class="nav-item {% if 'saving' in request.resolver_match.url_name %}active{% endif %}">
+        <i class="fa-solid fa-bullseye"></i>
+        <span>Savings Goals</span>
+      </a>
+      <a href="{% url 'recurring' %}" class="nav-item {% if 'recurring' in request.resolver_match.url_name %}active{% endif %}">
+        <i class="fa-solid fa-repeat"></i>
+        <span>Recurring Bills</span>
+      </a>
+
+      <div class="nav-section-title">Insights & Settings</div>
+      <a href="{% url 'reports' %}" class="nav-item {% if 'report' in request.resolver_match.url_name %}active{% endif %}">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>Analytics & Reports</span>
+      </a>
+      <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
+        <i class="fa-solid fa-bell"></i>
+        <span>Notifications</span>
+        {% if unread_notifications_count > 0 %}
+          <span class="badge badge-danger">{{ unread_notifications_count }}</span>
+        {% endif %}
+      </a>
+      <a href="{% url 'profile' %}" class="nav-item {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+        <i class="fa-solid fa-gear"></i>
+        <span>Settings & Profile</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-mini-card">
+        <div class="user-avatar">
+          {{ request.user.first_name|default:request.user.username|make_list|first }}
+        </div>
+        <div class="user-details">
+          <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+          <span class="user-role">{{ user_profile.occupation|default:'Active Member' }}</span>
+        </div>
+        <a href="{% url 'logout' %}" title="Logout" style="margin-left: auto; color: #94a3b8; font-size: 1rem; padding: 0.35rem;">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="app-main">
+    <!-- TOP NAVIGATION BAR -->
+    <header class="app-topbar">
+      <div class="topbar-left">
+        <button id="menuToggleBtn" class="menu-toggle-btn" aria-label="Toggle navigation">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="page-headline">
+          <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+          <p class="page-subtitle">{% block page_subtitle %}Welcome back, {{ request.user.first_name|default:request.user.username }}! Here is your financial overview.{% endblock %}</p>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <!-- Quick Add Transaction Button -->
+        <button onclick="openModal('quickAddModal')" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-plus"></i>
+          <span>Add Transaction</span>
+        </button>
+
+        <!-- Dark/Light Theme Switcher -->
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Dark/Light Mode">
+          <i id="themeToggleIcon" class="fa-solid fa-moon"></i>
+        </button>
+
+        <!-- Notifications Bell -->
+        <a href="{% url 'notifications' %}" class="notif-bell-btn" title="Notifications">
+          <i class="fa-regular fa-bell"></i>
+          {% if unread_notifications_count > 0 %}
+            <span class="notif-count-badge">{{ unread_notifications_count }}</span>
+          {% endif %}
+        </a>
+
+        <!-- User Profile Avatar Link -->
+        <a href="{% url 'profile' %}" class="user-avatar" style="width: 38px; height: 38px; text-decoration: none;" title="Your Profile">
+          {{ request.user.first_name|default:request.user.username|make_list|first }}
+        </a>
+      </div>
+    </header>
+
+    <!-- CONTENT BODY -->
+    <div class="page-container">
+      <!-- DJANGO FLASH MESSAGES -->
+      {% if messages %}
+        <div class="messages-container" style="margin-bottom: 1.5rem;">
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+              <i class="fa-solid {% if message.tags == 'success' %}fa-circle-check{% elif message.tags == 'danger' or message.tags == 'error' %}fa-circle-exclamation{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+              <div style="flex: 1;">{{ message }}</div>
+              <button onclick="this.parentElement.remove()" style="background: none; border: none; color: inherit; cursor: pointer;">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+<!-- GLOBAL QUICK ADD TRANSACTION MODAL -->
+<div id="quickAddModal" class="modal-overlay">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="fa-solid fa-plus-circle text-primary" style="color: var(--primary); margin-right: 0.5rem;"></i>Quick Add Transaction</h3>
+      <button class="modal-close-btn" onclick="closeModal('quickAddModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <form action="{% url 'transaction_add' %}" method="POST">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Transaction Type</label>
+          <select name="transaction_type" id="id_transaction_type" class="form-select" required>
+            <option value="expense" selected>Expense (Money Out)</option>
+            <option value="income">Income (Money In)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Title / Description</label>
+          <input type="text" name="title" class="form-input" placeholder="e.g. Campus Cafeteria, Tuition, Freelance" required>
+        </div>
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Amount ({{ user_currency }})</label>
+            <input type="number" step="0.01" min="0.01" name="amount" class="form-input" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" name="date" class="form-input" value="{% now 'Y-m-d' %}" required>
+          </div>
+        </div>
+
+        <div class="grid-cols-2" style="gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select name="category" id="id_category" class="form-select" required>
+              <option value="">Select Category</option>
+              {% for c in global_categories %}
+                <option value="{{ c.id }}">{{ c.name }} ({{ c.get_category_type_display }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Method</label>
+            <select name="payment_method" class="form-select">
+              <option value="upi">UPI / GPay / PhonePe</option>
+              <option value="cash">Cash</option>
+              <option value="debit_card">Debit Card</option>
+              <option value="credit_card">Credit Card</option>
+              <option value="net_banking">Net Banking</option>
+              <option value="wallet">Mobile Wallet</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notes (Optional)</label>
+          <textarea name="notes" class="form-textarea" rows="2" placeholder="Reference, invoice, or tags..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('quickAddModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Transaction</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- SCRIPTS -->
+<script src="{% static 'js/main.js' %}"></script>
+<script src="{% static 'js/charts.js' %}"></script>
+
+<!-- Pre-populate category options dynamically for the modal if needed -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Populate categories into quick add modal if empty
+    const modalCategorySelect = document.getElementById('id_category');
+    if (modalCategorySelect && modalCategorySelect.options.length <= 1) {
+      fetch('/transactions/')
+        .catch(() => {});
+    }
+  });
+</script>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

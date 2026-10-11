@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% load tracker_tags %}
+
+{% block title %}Reports & Analytics – MoneyMate{% endblock %}
+{% block page_title %}Analytics & Reports{% endblock %}
+{% block page_subtitle %}Deep dive into your financial flows, spending categories, and historical trends.{% endblock %}
+
+{% block content %}
+
+<!-- TOP TIMEFRAME SELECTOR & EXPORT ACTIONS -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <!-- Timeframe Tabs -->
+    <div style="display: flex; gap: 0.5rem; background: var(--border-subtle); padding: 0.35rem; border-radius: var(--radius-md);">
+      <a href="?timeframe=month&year={{ selected_year }}&month={{ selected_month }}" 
+         class="btn btn-sm {% if timeframe == 'month' %}btn-primary{% else %}btn-secondary{% endif %}" style="border: none;">
+        Monthly
+      </a>
+      <a href="?timeframe=year&year={{ selected_year }}" 
+         class="btn btn-sm {% if timeframe == 'year' %}btn-primary{% else %}btn-secondary{% endif %}" style="border: none;">
+        Annual
+      </a>
+      <a href="?timeframe=all" 
+         class="btn btn-sm {% if timeframe == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" style="border: none;">
+        All-Time
+      </a>
+    </div>
+
+    <!-- Export Actions -->
+    <div style="display: flex; gap: 0.75rem;">
+      <a href="{% url 'report_print' %}?year={{ selected_year }}&month={{ selected_month }}" target="_blank" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-print"></i> Printable Report
+      </a>
+      <a href="{% url 'export_csv' %}" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-file-csv"></i> Download CSV
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- AGGREGATE SUMMARY STATS -->
+<div class="grid-cols-4" style="margin-bottom: 2rem;">
+  <div class="stat-card stat-income">
+    <div class="stat-info">
+      <span class="stat-label">Total Revenue / Income</span>
+      <span class="stat-value" style="color: #10b981;">{{ total_income|currency:user_currency }}</span>
+      <span class="stat-sub">{{ report_title }}</span>
+    </div>
+    <div class="stat-icon icon-income"><i class="fa-solid fa-arrow-down-long"></i></div>
+  </div>
+
+  <div class="stat-card stat-expense">
+    <div class="stat-info">
+      <span class="stat-label">Total Outflow / Expense</span>
+      <span class="stat-value" style="color: #ef4444;">{{ total_expenses|currency:user_currency }}</span>
+      <span class="stat-sub">Across all categories</span>
+    </div>
+    <div class="stat-icon icon-expense"><i class="fa-solid fa-arrow-up-long"></i></div>
+  </div>
+
+  <div class="stat-card stat-balance">
+    <div class="stat-info">
+      <span class="stat-label">Net Surplus / Savings</span>
+      <span class="stat-value" style="color: {% if net_savings >= 0 %}var(--primary){% else %}var(--danger){% endif %};">
+        {{ net_savings|currency:user_currency }}
+      </span>
+      <span class="stat-sub">Savings Rate: {{ savings_rate }}%</span>
+    </div>
+    <div class="stat-icon icon-balance"><i class="fa-solid fa-vault"></i></div>
+  </div>
+
+  <div class="stat-card stat-budget">
+    <div class="stat-info">
+      <span class="stat-label">Top Expense Category</span>
+      <span class="stat-value" style="font-size: 1.35rem; color: var(--text-main);">
+        {{ highest_spending_category.name|default:'None' }}
+      </span>
+      <span class="stat-sub">
+        {% if highest_spending_category %}
+          {{ highest_spending_category.total|currency:user_currency }} ({{ highest_spending_category.percentage }}%)
+        {% else %}
+          No records
+        {% endif %}
+      </span>
+    </div>
+    <div class="stat-icon icon-budget"><i class="fa-solid fa-fire"></i></div>
+  </div>
+</div>
+
+<!-- CHARTS ROW: 12-MONTH HISTORICAL TREND & CATEGORY POLAR BREAKDOWN -->
+<div class="grid-cols-2-1" style="margin-bottom: 2rem;">
+  <!-- Financial Trends Chart -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><i class="fa-solid fa-chart-line text-primary" style="color: var(--primary);"></i>12-Month Financial Trajectory</h3>
+        <p class="card-subtitle">Monthly income vs expenses comparison over the past 12 months</p>
+      </div>
+    </div>
+    <div style="height: 320px; position: relative;">
+      <canvas id="historicalTrendsChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Category Breakdown Doughnut -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><i class="fa-solid fa-chart-pie" style="color: #f59e0b;"></i>Expense Distribution</h3>
+        <p class="card-subtitle">Spending proportion by category</p>
+      </div>
+    </div>
+    <div style="height: 320px; position: relative;">
+      <canvas id="reportsCategoryChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- CATEGORY-WISE EXPENSE BREAKDOWN TABLE -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title">
+        <i class="fa-solid fa-table-list text-primary" style="color: var(--primary);"></i>
+        Category-Wise Expense Breakdown
+      </h3>
+      <p class="card-subtitle">Itemized spend amounts, transaction frequencies, and percentages</p>
+    </div>
+  </div>
+
+  {% if category_breakdown %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Transactions Count</th>
+            <th>Share of Total Spending</th>
+            <th style="text-align: right;">Total Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cat in category_breakdown %}
+            <tr>
+              <td>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center; color: {{ cat.color }};">
+                    <i class="fa-solid {{ cat.icon }}"></i>
+                  </div>
+                  <strong style="color: var(--text-main);">{{ cat.name }}</strong>
+                </div>
+              </td>
+              <td>
+                <span class="badge badge-muted">{{ cat.count }} transactions</span>
+              </td>
+              <td style="width: 35%;">
+                <div class="progress-wrapper">
+                  <div class="progress-track" style="height: 8px;">
+                    <div class="progress-bar" style="background-color: {{ cat.color }}; width: {{ cat.percentage }}%;"></div>
+                  </div>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">{{ cat.percentage }}% of total</span>
+                </div>
+              </td>
+              <td style="text-align: right; font-weight: 700; color: #ef4444; font-size: 1rem;">
+                {{ cat.total|currency:user_currency }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <i class="fa-solid fa-chart-simple empty-icon"></i>
+      <h4 class="empty-title">No Expense Data to Analyze</h4>
+      <p class="empty-desc">There are no expense records for the selected timeframe.</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- PAYMENT METHODS BREAKDOWN -->
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title"><i class="fa-solid fa-credit-card text-primary" style="color: var(--primary);"></i>Spending by Payment Method</h3>
+  </div>
+  <div class="grid-cols-4" style="gap: 1rem;">
+    {% for method in payment_breakdown %}
+      <div style="background: var(--border-subtle); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
+        <span style="font-size: 0.78rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
+          {{ method.payment_method }}
+        </span>
+        <h4 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main);">
+          {{ method.total|currency:user_currency }}
+        </h4>
+      </div>
+    {% empty %}
+      <p style="color: var(--text-muted); font-size: 0.88rem;">No payment breakdown available.</p>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const currency = "{{ user_currency }}";
+
+    // 1. Historical Trends Bar/Line Chart
+    const trendLabels = {{ chart_trend_labels|safe }};
+    const trendIncome = {{ chart_trend_income|safe }};
+    const trendExpense = {{ chart_trend_expense|safe }};
+    initMonthlyComparisonChart('historicalTrendsChart', trendLabels, trendIncome, trendExpense, currency);
+
+    // 2. Reports Category Doughnut
+    const catLabels = {{ chart_cat_names|safe }};
+    const catAmounts = {{ chart_cat_amounts|safe }};
+    const catColors = {{ chart_cat_colors|safe }};
+    initCategoryChart('reportsCategoryChart', catLabels, catAmounts, catColors, currency);
+  });
+</script>
+{% endblock %}
